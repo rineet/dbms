@@ -4,16 +4,56 @@
 
 This is a web-based ER Diagram Designer application developed as a course project for the Database Management Systems course. The application provides a visual interface for designing database schemas with drag-and-drop functionality.
 
-## Features
+## 🌟 Key Features
 
-- **Visual Database Design**: Create and manipulate database tables through an intuitive drag-and-drop interface
-- **Column Management**: Add, edit, and delete columns with support for multiple data types (TEXT, INTEGER, REAL, BOOLEAN)
-- **Relationship Management**: Establish foreign key relationships between tables
-- **SQL Export**: Generate CREATE TABLE and INSERT statements from the visual design
-- **Mermaid ERD Export**: Export Entity-Relationship Diagrams in Mermaid markup format
-- **PNG Export**: Download visual diagrams as PNG images
-- **Primary Key Management**: Set and validate primary keys with uniqueness constraints
-- **Data Entry**: Add sample data to tables for testing and validation
+### Current Features
+- **Interactive Table Management**
+  - Create, edit, and delete tables with an intuitive interface
+  - Drag to reposition tables on the canvas
+  - Resize tables to accommodate content
+
+- **Column Management**
+  - Add, edit, and delete columns with various data types
+  - Support for common data types: TEXT, INTEGER, REAL, BOOLEAN
+  - Set column constraints (NOT NULL, UNIQUE, etc.)
+
+- **Relationship Visualization**
+  - Create one-to-many relationships between tables
+  - Visual indicators for primary and foreign keys
+  - Automatic line routing for clean diagrams
+
+- **Data Operations**
+  - Add sample data to tables
+  - Validate data against column types and constraints
+  - Generate sample data for testing
+
+- **Export Capabilities**
+  - Generate SQL DDL statements
+  - Export to Mermaid ERD format
+  - Save diagrams as PNG images
+  - Copy SQL to clipboard
+
+### Upcoming Features
+- **Enhanced Relationship Types**
+  - Support for one-to-one and many-to-many relationships
+  - Junction table auto-generation
+  - Cascade delete/update rules
+
+- **Collaboration**
+  - Real-time collaboration
+  - Shareable diagram links
+  - Version history
+
+- **Advanced Features**
+  - Import existing database schemas
+  - Generate sample data based on relationships
+  - Database reverse engineering
+  - Query builder interface
+
+- **User Experience**
+  - Dark/light theme support
+  - Keyboard shortcuts
+  - Customizable grid and snap settings
 
 ## Installation and Setup
 
