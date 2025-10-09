@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback, useRef } from "react";
+import { useMemo, useState, useCallback, useRef, useEffect } from "react";
 import ReactFlow, {
   addEdge,
   applyNodeChanges,
@@ -10,6 +10,7 @@ import ReactFlow, {
 import "reactflow/dist/style.css";
 import TableNode from "./TableNode";
 import { toPng } from "html-to-image";
+import mermaid from "mermaid";
 
 function App() {
   const [nodes, setNodes] = useState([]);
@@ -24,6 +25,19 @@ function App() {
   const [showERD, setShowERD] = useState(false);
   // Ref to capture the diagram for PNG export
   const diagramRef = useRef(null);
+  const mermaidRef = useRef(null);
+
+  // Initialize Mermaid
+  useEffect(() => {
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: 'default',
+      er: {
+        fontSize: 12
+      },
+      securityLevel: 'loose'
+    });
+  }, []);
 
 
   // Callbacks for TableNode actions
@@ -256,36 +270,50 @@ function App() {
 
   // Mermaid ERD generator
   const generateMermaidERD = () => {
+    if (nodes.length === 0) {
+      return "erDiagram\n  No tables found";
+    }
+
     const header = "erDiagram";
     const lines = [header];
 
     // Entities with attributes
     nodes.forEach((n) => {
-      const tableName = n.data.tableName || n.id;
+      const tableName = (n.data.tableName || n.id).replace(/[^a-zA-Z0-9_]/g, '_');
       const cols = n.data.columns || [];
       const pk = n.data.primaryKey || "";
+      
+      if (cols.length === 0) {
+        lines.push(`${tableName} {\n  empty\n}`);
+        return;
+      }
+      
       const attrs = cols
         .map((c) => {
           const type = c.type || "TEXT";
+          const name = (c.name || "").replace(/[^a-zA-Z0-9_]/g, '_');
           const pkFlag = pk === c.name ? " PK" : "";
-          return `  ${type} ${c.name}${pkFlag}`;
+          return `  ${type} ${name}${pkFlag}`;
         })
         .join("\n");
+      
       lines.push(`${tableName} {`);
-      if (attrs) lines.push(attrs);
+      lines.push(attrs);
       lines.push("}");
     });
 
-    // Relationships from foreign keys (parent ||--o{ child)
+    // Relationships from foreign keys (parent ||--|| child)
     const idToNode = new Map(nodes.map((n) => [n.id, n]));
     nodes.forEach((child) => {
       const fks = child.data.foreignKeys || [];
       fks.forEach((fk) => {
         const parent = idToNode.get(fk.refTableId);
-        const parentName = parent ? parent.data.tableName : fk.refTableId;
-        const childName = child.data.tableName || child.id;
+        const parentName = parent ? (parent.data.tableName || parent.id).replace(/[^a-zA-Z0-9_]/g, '_') : fk.refTableId;
+        const childName = (child.data.tableName || child.id).replace(/[^a-zA-Z0-9_]/g, '_');
         const label = fk.column === fk.refColumn ? fk.column : `${fk.column} to ${fk.refColumn}`;
-        lines.push(`${parentName} ||--o{ ${childName} : ${label}`);
+        // Use correct Mermaid ERD relationship syntax
+        // ||--|| means one-to-many relationship (parent has many children)
+        lines.push(`${parentName} ||--|| ${childName} : "${label}"`);
       });
     });
 
@@ -307,6 +335,45 @@ function App() {
       alert("Failed to export PNG");
     }
   };
+
+  // Render Mermaid ERD diagram
+  const renderMermaidDiagram = useCallback(async () => {
+    if (!mermaidRef.current) return;
+    
+    try {
+      const erdText = generateMermaidERD();
+      const element = mermaidRef.current;
+      
+      // Clear previous diagram
+      element.innerHTML = '';
+      element.removeAttribute('data-processed');
+      
+      // Generate unique ID for this diagram
+      const diagramId = `mermaid-erd-${Date.now()}`;
+      
+      // Render new diagram
+      const { svg } = await mermaid.render(diagramId, erdText);
+      element.innerHTML = svg;
+    } catch (err) {
+      console.error('Failed to render Mermaid diagram:', err);
+      console.error('ERD Text:', generateMermaidERD());
+      mermaidRef.current.innerHTML = `<div style="color: red; padding: 20px;">
+        <h4>Failed to render diagram</h4>
+        <p>Error: ${err.message}</p>
+        <details>
+          <summary>ERD Text:</summary>
+          <pre style="background: #f5f5f5; padding: 10px; margin: 10px 0;">${generateMermaidERD()}</pre>
+        </details>
+      </div>`;
+    }
+  }, [nodes, edges]);
+
+  // Re-render diagram when modal opens
+  useEffect(() => {
+    if (showERD) {
+      setTimeout(renderMermaidDiagram, 100);
+    }
+  }, [showERD, renderMermaidDiagram]);
 
   // React Flow node types
   const nodeTypes = useMemo(() => {
@@ -509,15 +576,48 @@ function App() {
         </div>
       )}
 
-      {/* ERD Modal (Mermaid text) */}
+      {/* ERD Modal (Visual + Mermaid text) */}
       {showERD && (
         <div className="absolute inset-0 bg-black/50 z-50 flex items-center justify-center">
-          <div className="bg-white rounded-lg shadow-xl p-4 w-[700px] max-h-[80vh] flex flex-col">
-            <h3 className="text-lg font-semibold mb-3">ER Diagram (Mermaid)</h3>
-            <textarea className="flex-1 w-full border rounded p-3 font-mono text-sm" readOnly value={generateMermaidERD()} />
-            <div className="mt-3 flex justify-end gap-2">
-              <button onClick={() => setShowERD(false)} className="px-3 py-2 rounded bg-gray-200">Close</button>
-              <button onClick={() => { navigator.clipboard.writeText(generateMermaidERD()); }} className="px-3 py-2 rounded bg-indigo-600 text-white">Copy</button>
+          <div className="bg-white rounded-lg shadow-xl p-4 w-[900px] max-h-[90vh] flex flex-col">
+            <h3 className="text-lg font-semibold mb-3">ER Diagram</h3>
+            
+            {/* Visual Diagram */}
+            <div className="mb-4 p-4 border rounded bg-gray-50">
+              <h4 className="text-sm font-medium mb-2">Visual Diagram:</h4>
+              <div 
+                ref={mermaidRef} 
+                className="flex justify-center items-center min-h-[200px]"
+                style={{ overflow: 'auto' }}
+              />
+              {nodes.length === 0 && (
+                <div className="text-center text-gray-500 py-8">
+                  <p>No tables found. Add some tables to see the ER diagram.</p>
+                </div>
+              )}
+            </div>
+            
+            {/* Mermaid Text */}
+            <div className="flex-1 flex flex-col">
+              <h4 className="text-sm font-medium mb-2">Mermaid Code:</h4>
+              <textarea 
+                className="flex-1 w-full border rounded p-3 font-mono text-sm" 
+                readOnly 
+                value={generateMermaidERD()} 
+              />
+            </div>
+            
+            <div className="mt-3 flex justify-between">
+              <button 
+                onClick={renderMermaidDiagram} 
+                className="px-3 py-2 rounded bg-blue-600 text-white"
+              >
+                Refresh Diagram
+              </button>
+              <div className="flex gap-2">
+                <button onClick={() => setShowERD(false)} className="px-3 py-2 rounded bg-gray-200">Close</button>
+                <button onClick={() => { navigator.clipboard.writeText(generateMermaidERD()); }} className="px-3 py-2 rounded bg-indigo-600 text-white">Copy Code</button>
+              </div>
             </div>
           </div>
         </div>
